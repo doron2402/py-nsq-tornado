@@ -1,46 +1,16 @@
 #!/usr/bin/env python
+
 import logging
 import functools
-from threading import Timer
-from time import sleep
 from tornado.gen import coroutine, sleep
 import tornado
 from tornado.concurrent import run_on_executor
 from concurrent.futures import ThreadPoolExecutor
 import ijson
-
-
-class RepeatedTimer(object):
-    def __init__(self, interval, message, *args, **kwargs):
-        self._timer     = None
-        self.interval   = interval
-        self.message    = message
-        self.args       = args
-        self.kwargs     = kwargs
-        self.is_running = False
-        self.start()
-
-    def _run(self):
-        self.is_running = False
-        self.start()
-        logging.info('message touch id: {}'.format(self.message.id))
-        self.message.touch()
-
-    def start(self):
-        if not self.is_running:
-            self._timer = Timer(self.interval, self._run)
-            self._timer.start()
-            self.is_running = True
-
-    def stop(self):
-        logging.info('stop touching the message')
-        self._timer.cancel()
-        self.is_running = False
-        finish_message(self.message)
-
+import decimal
 
 class Message():
-    executor = ThreadPoolExecutor(max_workers=1)
+    executor = ThreadPoolExecutor(max_workers=4)
 
     @coroutine
     def process_message(self, message):
@@ -51,28 +21,31 @@ class Message():
         logging.info('body: {}'.format(message.body))
         logging.info('has message responded? {}'.format(message.has_responded()))
 
-        if message.has_responded() == False:
-            rt = RepeatedTimer(5, message)
-            logging.info('has message responded? {}'.format(message.has_responded()))
-            try:
-                # Process message
-                logging.info('read json...')
-                result = yield read_json()
-                logging.info(result)
+        if message.has_responded() is True:
+            return
 
-                logging.info('gen sleeping..')
-                yield sleep(10)
-                logging.info('gen sleeping..done.')
+        rt = TimeInterval(5, message)
+        logging.info('has message responded? {}'.format(message.has_responded()))
+        try:
+            # Process message
+            logging.info('read json...')
+            result = yield read_json('./data/1/2018/01/2018-01-01T00:00:00.000000Z_2018-01-01T06:00:00.000000Z.json')
+            # logging.info(result)
 
-                logging.info(message.body)
-                logging.info('sleep is done.')
+            logging.info('gen sleeping..')
+            yield sleep(10)
+            logging.info('gen sleeping..done.')
 
-            except Exception as err:
-                logging.error(err)
-                requeue_message(message)
-            finally:
-                logging.info('finally start.')
-                rt.stop() # better in a try/finally block to make sure the program ends!
+            logging.info(message.body)
+            logging.info('sleep is done.')
+
+        except Exception as err:
+            logging.error(err)
+            rt.stop()
+            requeue_message(message)
+        finally:
+            logging.info('finally start.')
+            rt.stop()
 
 
 @coroutine
@@ -86,15 +59,26 @@ def finish_message(message):
     logging.info('Finish message')
     message.finish()
 
+
 @coroutine
-def read_json():
-    data_result_file_path = '~/github/py-nsq-tornado/python/server/test.json'
+def read_json(data_result_file_path):
     arr = []
     logging.info('opening {}'.format(data_result_file_path))
+    counter = 0
     with open(data_result_file_path, 'r') as json_file:
         items = ijson.items(json_file, 'item')
-        logging.info(items)
         for item in items:
-            logging.info(item)
+            counter += 1
+            if 'value_a' in item:
+                item['value_a'] = parse_decimal(item['value_a'])
+            if 'value_b' in item:
+                item['value_b'] = parse_decimal(item['value_b'])
             arr.append(item)
+    logging.info('JSON size: {}'.format(counter))
     return arr
+
+
+def parse_decimal(val):
+    if isinstance(val, decimal.Decimal):
+        return float(val)
+    return val
