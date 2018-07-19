@@ -7,7 +7,14 @@ import tornado
 from tornado.concurrent import run_on_executor
 from concurrent.futures import ThreadPoolExecutor
 import ijson
+import json
 import decimal
+
+import nsq_server.config as Config
+from nsq_server.time_interval import TimeInterval
+from nsq_server.files import get_list_of_files_by_dates
+
+TOUCH_INTERVAL = 5 # 5 seconds
 
 class Message():
     executor = ThreadPoolExecutor(max_workers=4)
@@ -18,18 +25,31 @@ class Message():
         logging.info('incoming message')
 
         message.enable_async()
+
         logging.info('body: {}'.format(message.body))
         logging.info('has message responded? {}'.format(message.has_responded()))
 
         if message.has_responded() is True:
             return
 
-        rt = TimeInterval(5, message)
+        rt = TimeInterval(TOUCH_INTERVAL, message)
         logging.info('has message responded? {}'.format(message.has_responded()))
+
         try:
+            parsed_message = json.loads(message.body)
+            # Calculate files
+            logging.info('read data from {} to {}'.format(
+                parsed_message.get('start_date'),
+                parsed_message.get('end_date')
+            ))
             # Process message
             logging.info('read json...')
-            result = yield read_json('./data/1/2018/01/2018-01-01T00:00:00.000000Z_2018-01-01T06:00:00.000000Z.json')
+            list_of_files = yield get_list_of_files_by_dates(
+                parsed_message.get('start_date'),
+                parsed_message.get('end_date')
+            )
+            logging.info(list_of_files)
+            result = yield read_json('./data/1/2018/01/20180108T120000_20180108T180000.json')
             # logging.info(result)
 
             logging.info('gen sleeping..')
@@ -40,12 +60,17 @@ class Message():
             logging.info('sleep is done.')
 
         except Exception as err:
+            logging.info(err)
             logging.error(err)
             rt.stop()
+            # Requeue message something went wrong...
             requeue_message(message)
         finally:
             logging.info('finally start.')
             rt.stop()
+            # Finish message
+            message.finish()
+            # finish_message(message)
 
 
 @coroutine
@@ -74,6 +99,7 @@ def read_json(data_result_file_path):
             if 'value_b' in item:
                 item['value_b'] = parse_decimal(item['value_b'])
             arr.append(item)
+
     logging.info('JSON size: {}'.format(counter))
     return arr
 

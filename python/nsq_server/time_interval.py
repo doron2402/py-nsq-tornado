@@ -29,4 +29,3 @@ class TimeInterval(object):
         logging.info('stop touching the message')
         self._timer.cancel()
         self.is_running = False
-        finish_message(self.message)
