@@ -1,0 +1,36 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Producer",
+      "type": "python",
+      "request": "launch",
+      "pythonPath": "",
+      "env": {
+        "PYTHONPAT": "/Users/doronsegal/github/py-nsq-tornado/python:$PYTHONPATH"
+      },
+      "program": "sandbox/nsq_producer.py"
+    },
+    {
+      "name": "Consumer",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": true,
+      "pythonPath": "/Users/doronsegal/.pyenv/versions/2.7.14/bin/python",
+      "program": "${workspaceRoot}/python/nsq_server/main.py",
+      "cwd": "${workspaceRoot}",
+      "env": {
+        "PYTHONPATH":"${workspaceRoot}/python"
+      },
+      "envFile": "${workspaceRoot}/.env",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ]
+    }
+  ]
+}

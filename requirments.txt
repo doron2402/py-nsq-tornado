@@ -1,5 +1,7 @@
 backports-abc==0.5
+certifi==2018.4.16
 futures==3.2.0
+ijson==2.3
 pynsq==0.8.2
 singledispatch==3.4.0.3
 six==1.11.0
